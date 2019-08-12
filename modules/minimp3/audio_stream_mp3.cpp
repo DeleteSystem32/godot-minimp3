@@ -1,3 +1,32 @@
+/*************************************************************************/
+/*  audio_stream_mp3.cpp                                                 */
+/*************************************************************************/
+/*                       This file is part of:                           */
+/*                           GODOT ENGINE                                */
+/*                      https://godotengine.org                          */
+/*************************************************************************/
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
+/*                                                                       */
+/* Permission is hereby granted, free of charge, to any person obtaining */
+/* a copy of this software and associated documentation files (the       */
+/* "Software"), to deal in the Software without restriction, including   */
+/* without limitation the rights to use, copy, modify, merge, publish,   */
+/* distribute, sublicense, and/or sell copies of the Software, and to    */
+/* permit persons to whom the Software is furnished to do so, subject to */
+/* the following conditions:                                             */
+/*                                                                       */
+/* The above copyright notice and this permission notice shall be        */
+/* included in all copies or substantial portions of the Software.       */
+/*                                                                       */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
+/*************************************************************************/
 
 #define MINIMP3_ONLY_MP3
 #define MINIMP3_FLOAT_OUTPUT
@@ -15,69 +44,67 @@ void AudioStreamPlaybackMP3::_mix_internal(AudioFrame *p_buffer, int p_frames) {
 
 	mp3dec_frame_info_t info;
 
-	while(todo && active){
+	while (todo && active) {
 		int next_frame = frames_mixed;
-
 
 		//populate pcm buffer w/ one full mp3 frame
 
-		if(!pcm_samples || next_frame < pcm_start_sample){
+		if (!pcm_samples || next_frame < pcm_start_sample) {
 			populate_first_frame(next_frame, &info);
 		}
 
-		while(next_frame >= pcm_start_sample + pcm_samples){
+		while (next_frame >= pcm_start_sample + pcm_samples) {
 			//seek forward
-			frame_byte_start+=frame_bytes;
-			pcm_start_sample+=pcm_samples;
+			frame_byte_start += frame_bytes;
+			pcm_start_sample += pcm_samples;
 
-			if(frame_byte_start >= mp3_stream->data_len || !frame_bytes){
+			if (frame_byte_start >= mp3_stream->data_len || !frame_bytes) {
 				//loop
-				if(mp3_stream->loop){
+				if (mp3_stream->loop) {
 					seek(mp3_stream->loop_offset);
 					loops++;
 					next_frame = frames_mixed;
 					populate_first_frame(next_frame, &info);
 					break;
-				}		
-				else{
+				} else {
 					//fill remainder of frames
 					for (int i = p_frames - todo; i < p_frames; i++) {
 						p_buffer[i] = AudioFrame(0, 0);
 					}
 					active = false;
 					return;
-				}	
+				}
 			}
 
-			pcm_samples = mp3dec_decode_frame(mp3d, ((const uint8_t*)mp3_stream->data) + frame_byte_start, mp3_stream->data_len-frame_byte_start, pcm, &info);
+			uint32_t real_byte_len = mp3_stream->max_frame_bytes <= mp3_stream->data_len - frame_byte_start ? mp3_stream->max_frame_bytes : mp3_stream->data_len - frame_byte_start;
+
+			pcm_samples = mp3dec_decode_frame(mp3d, ((const uint8_t *)mp3_stream->data) + frame_byte_start, real_byte_len, pcm, &info);
 			frame_bytes = info.frame_bytes;
 		}
 
 		//then, copy desired 2 samples to audioframe
 		int local_sample = next_frame - pcm_start_sample;
-		p_buffer[p_frames - todo] = AudioFrame(pcm[local_sample * mp3_stream->channels], pcm[local_sample * mp3_stream->channels +(mp3_stream->channels-1)]);
+		p_buffer[p_frames - todo] = AudioFrame(pcm[local_sample * mp3_stream->channels], pcm[local_sample * mp3_stream->channels + (mp3_stream->channels - 1)]);
 		frames_mixed += 1;
 		todo -= 1;
-
-		
-	}	
+	}
 }
 
-void AudioStreamPlaybackMP3::populate_first_frame(int start_at, mp3dec_frame_info_t* info){
+void AudioStreamPlaybackMP3::populate_first_frame(int start_at, mp3dec_frame_info_t *info) {
 	frame_byte_start = 0;
 	pcm_start_sample = 0;
 	pcm_samples = 0;
 
-	do
-	{				
-		pcm_samples = mp3dec_decode_frame(mp3d, ((const uint8_t*)mp3_stream->data) + frame_byte_start, mp3_stream->data_len-frame_byte_start, pcm, info);
+	do {
+		int real_byte_len = mp3_stream->max_frame_bytes <= mp3_stream->data_len - frame_byte_start ? mp3_stream->max_frame_bytes : mp3_stream->data_len - frame_byte_start;
+		pcm_samples = mp3dec_decode_frame(mp3d, ((const uint8_t *)mp3_stream->data) + frame_byte_start, real_byte_len, pcm, info);
 		frame_bytes = info->frame_bytes;
-		if(pcm_samples && start_at >= pcm_start_sample && start_at < pcm_start_sample + pcm_samples){
+		if (pcm_samples && start_at >= pcm_start_sample && start_at < pcm_start_sample + pcm_samples) {
 			//found needed sample
 			break;
 		}
-		frame_byte_start+= frame_bytes;
-		pcm_start_sample+=pcm_samples;
+		frame_byte_start += frame_bytes;
+		pcm_start_sample += pcm_samples;
 	} while ((!pcm_samples || start_at < pcm_start_sample) && frame_byte_start < mp3_stream->data_len);
 }
 
@@ -124,7 +151,6 @@ void AudioStreamPlaybackMP3::seek(float p_time) {
 	frame_byte_start = 0;
 	pcm_samples = 0;
 	pcm_start_sample = 0;
-	
 }
 
 AudioStreamPlaybackMP3::~AudioStreamPlaybackMP3() {
@@ -138,13 +164,13 @@ AudioStreamPlaybackMP3::~AudioStreamPlaybackMP3() {
 
 Ref<AudioStreamPlayback> AudioStreamMP3::instance_playback() {
 	Ref<AudioStreamPlaybackMP3> mp3s;
-	
+
 	ERR_FAIL_COND_V(data == NULL, mp3s);
 
 	mp3s.instance();
 	mp3s->mp3_stream = Ref<AudioStreamMP3>(this);
 
-	mp3s->mp3d = (mp3dec_t*)AudioServer::get_singleton()->audio_data_alloc(sizeof(mp3dec_t));
+	mp3s->mp3d = (mp3dec_t *)AudioServer::get_singleton()->audio_data_alloc(sizeof(mp3dec_t));
 	mp3dec_init(mp3s->mp3d);
 	mp3s->pcm = (mp3d_sample_t *)AudioServer::get_singleton()->audio_data_alloc(decode_mem_size);
 	mp3s->frames_mixed = 0;
@@ -160,7 +186,7 @@ Ref<AudioStreamPlayback> AudioStreamMP3::instance_playback() {
 		mp3s->pcm = NULL;
 		ERR_FAIL_COND_V(!mp3s->mp3d, Ref<AudioStreamPlaybackMP3>());
 	}
-	
+
 	return mp3s;
 }
 
@@ -187,41 +213,38 @@ void AudioStreamMP3::set_data(const PoolVector<uint8_t> &p_data) {
 	mp3dec_t mp3d;
 	mp3dec_init(&mp3d);
 
-	mp3d_sample_t pcm[MINIMP3_MAX_SAMPLES_PER_FRAME];
 	PoolVector<uint8_t>::Read src_datar = p_data.read();
 	int total_frames = 0;
 	int samples = 0;
 	int bitrate_accu = 0;
 	total_samples = 0;
 	total_frame_size = 0;
-	
-	do
-	{
-		samples = mp3dec_decode_frame(&mp3d, src_datar.ptr() + total_frame_size, src_data_len - total_frame_size, pcm, &info);
 
-		
+	do {
+		//pcm = nullptr so it doesn't have to decode the entire file
+		samples = mp3dec_decode_frame(&mp3d, src_datar.ptr() + total_frame_size, src_data_len - total_frame_size, nullptr, &info);
+
 		total_frame_size += info.frame_bytes;
-		if(samples){
-			++total_frames;			
+		max_frame_bytes = info.frame_bytes > max_frame_bytes ? info.frame_bytes : max_frame_bytes;
+		if (samples) {
+			++total_frames;
 			bitrate_accu += info.bitrate_kbps;
 			total_samples += samples;
 
-			if(!info_initialised){
+			if (!info_initialised) {
 				sample_rate = info.hz;
 				channels = info.channels;
 				info_initialised = true;
-			}			
-			
+			}
 		}
-		
-	} while (total_frame_size < src_data_len && info.frame_bytes);// || info.frame_bytes));
 
-	if(total_frames >0){
+	} while (total_frame_size < src_data_len && info.frame_bytes);
+
+	if (total_frames > 0) {
 		avg_bitrate_kbps = float(bitrate_accu) / float(total_frames);
 
 		length = float(total_samples) / float(sample_rate);
 	}
-
 
 	//todo: error if invalid file
 
@@ -301,6 +324,7 @@ AudioStreamMP3::AudioStreamMP3() {
 	avg_bitrate_kbps = 0;
 	total_frame_size = 0;
 	total_samples = 0;
+	max_frame_bytes = 0;
 }
 
 AudioStreamMP3::~AudioStreamMP3() {
