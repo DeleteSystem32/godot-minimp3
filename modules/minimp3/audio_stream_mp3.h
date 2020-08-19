@@ -25,7 +25,7 @@ class AudioStreamPlaybackMP3 : public AudioStreamPlaybackResampled {
 
 	friend class AudioStreamMP3;
 
-	Ref<AudioStreamMP3> mp3_stream; //vorbis_stream;
+	Ref<AudioStreamMP3> mp3_stream;
 
 	void populate_first_frame(int, mp3dec_frame_info_t *);
 
@@ -86,6 +86,8 @@ public:
 
 	void set_data(const PoolVector<uint8_t> &p_data);
 	PoolVector<uint8_t> get_data() const;
+
+	float get_avg_bitrate_kbps() const;
 
 	virtual float get_length() const; //if supported, otherwise return 0
 

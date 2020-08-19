@@ -259,6 +259,10 @@ float AudioStreamMP3::get_loop_offset() const {
 	return loop_offset;
 }
 
+float AudioStreamMP3::get_avg_bitrate_kbps() const {
+	return avg_bitrate_kbps;
+}
+
 float AudioStreamMP3::get_length() const {
 
 	return length;
@@ -274,6 +278,8 @@ void AudioStreamMP3::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_loop_offset", "seconds"), &AudioStreamMP3::set_loop_offset);
 	ClassDB::bind_method(D_METHOD("get_loop_offset"), &AudioStreamMP3::get_loop_offset);
+
+	ClassDB::bind_method(D_METHOD("get_avg_bitrate_kbps"), &AudioStreamMP3::get_avg_bitrate_kbps);
 
 	ADD_PROPERTY(PropertyInfo(Variant::POOL_BYTE_ARRAY, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR), "set_data", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "loop", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR), "set_loop", "has_loop");
