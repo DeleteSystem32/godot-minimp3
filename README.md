@@ -1,3 +1,6 @@
+# Important Note
+This module is obsolete as of Godot 3.2.4 beta 4, as the engine now includes mp3 support in the official build.
+
 # godot-minimp3
 Module for the [Godot Engine](https://github.com/godotengine/godot) to add MP3 import and playback support. Uses [minimp3](https://github.com/lieff/minimp3). Adds "AudioStreamMP3" resource.
 
